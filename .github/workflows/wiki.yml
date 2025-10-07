@@ -1,0 +1,74 @@
+name: Daily Wikipedia Post
+
+on:
+  schedule:
+    - cron: "0 12 * * *"  # every day at 12:00 UTC
+  workflow_dispatch:      # allow manual trigger from GitHub UI
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch random English Wikipedia article
+        id: wiki
+        run: |
+          mkdir -p archive
+
+          # Get random EN Wikipedia article
+          DATA=$(curl -s https://en.wikipedia.org/api/rest_v1/page/random/summary)
+
+          TITLE=$(echo "$DATA" | jq -r '.title')
+          EXTRACT=$(echo "$DATA" | jq -r '.extract')
+          URL=$(echo "$DATA" | jq -r '.content_urls.desktop.page')
+          IMAGE=$(echo "$DATA" | jq -r '.thumbnail.source // empty')
+
+          TODAY=$(date -u +"%Y-%m-%d")
+
+          TITLE_ESCAPED=$(echo "$TITLE" | jq -R .)
+          EXTRACT_ESCAPED=$(echo "$EXTRACT" | jq -R .)
+          URL_ESCAPED=$(echo "$URL" | jq -R .)
+          IMAGE_ESCAPED=$(echo "$IMAGE" | jq -R .)
+
+          echo "{ \"date\": \"$TODAY\", \"title\": $TITLE_ESCAPED, \"extract\": $EXTRACT_ESCAPED, \"url\": $URL_ESCAPED, \"image\": $IMAGE_ESCAPED }" > latest.json
+
+          cp latest.json "archive/$TODAY.json"
+
+      - name: Commit updated JSONs
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add latest.json archive/
+          git commit -m "Update Wikipedia article for $(date -u +%Y-%m-%d)" || echo "No changes to commit"
+          git push
+
+      - name: Send to Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          TITLE=$(jq -r .title latest.json)
+          EXTRACT=$(jq -r .extract latest.json)
+          URL=$(jq -r .url latest.json)
+          IMAGE=$(jq -r .image latest.json)
+
+          PAYLOAD=$(jq -n \
+            --arg t "$TITLE" \
+            --arg e "$EXTRACT" \
+            --arg u "$URL" \
+            --arg i "$IMAGE" \
+            '{
+              embeds: [{
+                title: $t,
+                description: $e,
+                url: $u,
+                color: 3447003,
+                thumbnail: (if $i != "" then {url: $i} else null end),
+                footer: { text: "🎲 Wikipedia Article of the Day" }
+              }]
+            }'
+          )
+
+          curl -H "Content-Type: application/json" -d "$PAYLOAD" "$WEBHOOK_URL"
