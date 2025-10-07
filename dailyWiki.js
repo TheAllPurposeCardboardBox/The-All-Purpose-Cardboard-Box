@@ -5,6 +5,7 @@ import fetch from "node-fetch";
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const FILE_PATH = "./articles.json";
 
+// Get a random Wikipedia article
 async function getRandomWikiArticle() {
   const response = await fetch("https://en.wikipedia.org/api/rest_v1/page/random/summary");
   const data = await response.json();
@@ -17,6 +18,7 @@ async function getRandomWikiArticle() {
   };
 }
 
+// Send an embedded message to Discord
 async function sendToDiscord(article) {
   const embed = {
     embeds: [
@@ -38,6 +40,7 @@ async function sendToDiscord(article) {
   });
 }
 
+// Safely update or create the JSON file
 function updateArticlesFile(article) {
   let articles = [];
 
@@ -53,12 +56,31 @@ function updateArticlesFile(article) {
     articles = [];
   }
 
-  // Add today’s article if not already in file
+  // Add today’s article if not already there
   if (!articles.find(a => a.date === article.date)) {
     articles.unshift(article);
-    fs.writeFileSync(FILE_PATH, JSON.stringify(articles, null, 2));
+  }
+
+  // Keep only the last 30 days
+  if (articles.length > 30) {
+    articles = articles.slice(0, 30);
+  }
+
+  fs.writeFileSync(FILE_PATH, JSON.stringify(articles, null, 2));
+}
+
+// Main async runner
+async function main() {
+  try {
+    const article = await getRandomWikiArticle();
+    updateArticlesFile(article);
+    await sendToDiscord(article);
+    console.log("✅ Article posted and saved successfully!");
+  } catch (err) {
+    console.error("❌ Failed to post article:", err);
+    process.exit(1);
   }
 }
 
-
+// Run the script
 main();
