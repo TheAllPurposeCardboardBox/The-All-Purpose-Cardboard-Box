@@ -40,19 +40,25 @@ async function sendToDiscord(article) {
 
 function updateArticlesFile(article) {
   let articles = [];
-  if (fs.existsSync(FILE_PATH)) {
-    articles = JSON.parse(fs.readFileSync(FILE_PATH, "utf8"));
+
+  try {
+    if (fs.existsSync(FILE_PATH)) {
+      const text = fs.readFileSync(FILE_PATH, "utf8").trim();
+      if (text) {
+        articles = JSON.parse(text);
+      }
+    }
+  } catch (err) {
+    console.error("⚠️ Failed to read articles.json, starting fresh:", err);
+    articles = [];
   }
+
+  // Add today’s article if not already in file
   if (!articles.find(a => a.date === article.date)) {
-    articles.unshift(article); // add to top
+    articles.unshift(article);
     fs.writeFileSync(FILE_PATH, JSON.stringify(articles, null, 2));
   }
 }
 
-async function main() {
-  const article = await getRandomWikiArticle();
-  updateArticlesFile(article);
-  await sendToDiscord(article);
-}
 
 main();
