@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wikipedia Article of the Day</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 1rem;
+      color: #222;
+    }
+    img {
+      max-width: 100%;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+    h1 { color: #2c3e50; margin-bottom: 0.5rem; }
+    a { color: #0078d4; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    details {
+      margin-bottom: 0.5rem;
+      background: #f4f6f8;
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+    }
+    summary {
+      font-weight: bold;
+      cursor: pointer;
+    }
+    summary:hover {
+      color: #0078d4;
+    }
+    p { margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1 id="title">Loading today's article...</h1>
+  <p id="extract"></p>
+  <a id="link" href="#" target="_blank">Read on Wikipedia</a>
+  <img id="image" style="display:none" alt="Article image"/>
+
+  <section id="past-articles">
+    <h2>📚 Past Articles</h2>
+    <div id="archive-list">Loading archive...</div>
+  </section>
+
+  <script>
+    async function loadToday() {
+      const today = await fetch("latest.json?cache=" + Date.now()).then(r => r.json());
+      document.getElementById("title").innerText = today.title;
+      document.getElementById("extract").innerText = today.extract;
+      document.getElementById("link").href = today.url;
+      if (today.image) {
+        const img = document.getElementById("image");
+        img.src = today.image;
+        img.style.display = "block";
+      }
+    }
+
+    async function loadArchive() {
+      const res = await fetch("https://api.github.com/repos/YOUR_GITHUB_USERNAME/wiki-of-the-day/contents/archive");
+      const files = await res.json();
+
+      const container = document.getElementById("archive-list");
+      container.innerHTML = "";
+
+      const sorted = files
+        .filter(f => f.name.endsWith(".json"))
+        .sort((a, b) => b.name.localeCompare(a.name)); // newest first
+
+      for (const file of sorted) {
+        const date = file.name.replace(".json", "");
+        const data = await fetch(`archive/${file.name}?cache=${Date.now()}`).then(r => r.json());
+        const el = document.createElement("details");
+        el.innerHTML = `
+          <summary>${date} — ${data.title}</summary>
+          <p>${data.extract}</p>
+          <a href="${data.url}" target="_blank">Read on Wikipedia</a>
+        `;
+        container.appendChild(el);
+      }
+    }
+
+    loadToday();
+    loadArchive();
+  </script>
+</body>
+</html>
