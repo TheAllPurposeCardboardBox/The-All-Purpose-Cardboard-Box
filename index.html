@@ -61,7 +61,7 @@
     }
 
     async function loadArchive() {
-      const res = await fetch("https://api.github.com/repos/YOUR_GITHUB_USERNAME/wiki-of-the-day/contents/archive");
+      const res = await fetch("https://api.github.com/repos/TheAllPurposeCardboardBox/wiki-of-the-day/contents/archive");
       const files = await res.json();
 
       const container = document.getElementById("archive-list");
